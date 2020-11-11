@@ -7,10 +7,8 @@ license = "MIT OR BSD-3-Clause"
 
 [dependencies]
 crdts = "4.0.0"
-#bft_crdts = { git = "https://github.com/dan-da/bft-crdts.git", package="bft-crdts", branch="master" }
-#bft_crdts = { git = "https://github.com/davidrusu/bft-crdts.git", package="bft-crdts", branch="master" }
+sb = { git = "https://github.com/maidsafe/sb.git", package="sb", branch="master" }
 serde = "1.0.106"
-sb = { path = "/home/danda/dev/maidsafe/sb" }
 
 [dev-dependencies]
 # choose DSB as our secure broadcast impl for testing with.
