@@ -1,0 +1,23 @@
+[package]
+name = "sb_algo_at2"
+version = "0.1.0"
+authors = ["David Rusu <davidrusu.me@gmail.com>"]
+edition = "2018"
+license = "MIT OR BSD-3-Clause"
+
+[dependencies]
+crdts = "4.0.0"
+#bft_crdts = { git = "https://github.com/dan-da/bft-crdts.git", package="bft-crdts", branch="master" }
+#bft_crdts = { git = "https://github.com/davidrusu/bft-crdts.git", package="bft-crdts", branch="master" }
+serde = "1.0.106"
+sb = { path = "/home/danda/dev/maidsafe/sb" }
+
+[dev-dependencies]
+# choose DSB as our secure broadcast impl for testing with.
+sb_impl_dsb = { path = "/home/danda/dev/maidsafe/sb_impl_dsb" }
+
+[profile.test]
+# Property testing is a power hungry beast, we need to go as fast as we can
+opt-level = 3
+lto = "fat" # noticed a very significant speed up from enabling lto, perf improvement of 1m33s -> 10s
+incremental = false
