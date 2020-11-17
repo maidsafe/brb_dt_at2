@@ -1,11 +1,14 @@
-use sb::Actor;
-use sb_impl_dsb::{Packet, Net};
+use sb::{Actor, Packet, SecureBroadcastImpl, SecureBroadcastNetwork, SecureBroadcastNetworkSimulator};
+use sb_net_mem::Net;
+use sb_impl_dsb::SecureBroadcastProc;
 use sb_algo_at2::{Money, Bank, Op};
 
 struct NetBank;
+type NetDSBBank = Net<SecureBroadcastProc<Bank>, Bank>;
 
 impl NetBank {
-    pub fn find_actor_with_balance(net: &Net<Bank>, balance: Money) -> Option<Actor> {
+
+    pub fn find_actor_with_balance(net: &NetDSBBank, balance: Money) -> Option<Actor> {
         net.actors()
             .iter()
             .cloned()
@@ -13,7 +16,7 @@ impl NetBank {
     }
 
     pub fn balance_from_pov_of_proc(
-        net: &Net<Bank>,
+        net: &NetDSBBank,
         pov: &Actor,
         account: &Actor,
     ) -> Option<Money> {
@@ -21,7 +24,7 @@ impl NetBank {
     }
 
     pub fn open_account(
-        net: &Net<Bank>,
+        net: &NetDSBBank,
         initiating_proc: Actor,
         bank_owner: Actor,
         initial_balance: Money,
@@ -32,7 +35,7 @@ impl NetBank {
     }
 
     pub fn transfer(
-        net: &Net<Bank>,
+        net: &NetDSBBank,
         initiating_proc: Actor,
         from: Actor,
         to: Actor,
@@ -56,7 +59,7 @@ mod tests {
                 return TestResult::discard()
             }
 
-            let mut net: Net<Bank> = Net::new();
+            let mut net: NetDSBBank = Net::new();
 
             for balance in balances.iter().cloned() {
                 let actor = net.initialize_proc();
@@ -104,7 +107,7 @@ mod tests {
                 return TestResult::discard()
             }
 
-            let mut net: Net<Bank> = Net::new();
+            let mut net: NetDSBBank = Net::new();
 
             for balance in balances.iter().cloned() {
                 let actor = net.initialize_proc();
@@ -163,7 +166,7 @@ mod tests {
                 return TestResult::discard();
             }
 
-            let mut net: Net<Bank> = Net::new();
+            let mut net: NetDSBBank = Net::new();
 
             for balance in balances.iter().cloned() {
                 let actor = net.initialize_proc();
@@ -243,7 +246,7 @@ mod tests {
         // Quickcheck found some problems with an earlier version of the BFT onboarding logic.
         // This is a direct copy of the quickcheck tests, together with the failing test vector.
 
-        let mut net: Net<Bank> = Net::new();
+        let mut net: NetDSBBank = Net::new();
 
         let balances = vec![0, 0];
         for balance in balances.iter() {
@@ -286,12 +289,12 @@ mod tests {
             assert_eq!(remaining_balances.len(), 0);
         }
 
-        assert_eq!(net.n_packets, 15);
+        assert_eq!(net.num_packets(), 15);
     }
 
     #[test]
     fn test_transfer_is_actually_moving_money_qc1() {
-        let mut net: Net<Bank> = Net::new();
+        let mut net: NetDSBBank = Net::new();
 
         for balance in &[0, 9] {
             let actor = net.initialize_proc();
@@ -340,12 +343,12 @@ mod tests {
         assert_eq!(from_balance_abs_delta, amount);
         assert_eq!(from_balance_abs_delta, to_balance_abs_delta);
 
-        assert_eq!(net.n_packets, 21);
+        assert_eq!(net.num_packets(), 21);
     }
 
     #[test]
     fn test_causal_dependancy() {
-        let mut net: Net<Bank> = Net::new();
+        let mut net: NetDSBBank = Net::new();
 
         for balance in &[1000, 1000, 1000, 1000] {
             let actor = net.initialize_proc();
@@ -403,12 +406,12 @@ mod tests {
         assert_eq!(NetBank::balance_from_pov_of_proc(&net, &c, &c), Some(1500));
         assert_eq!(NetBank::balance_from_pov_of_proc(&net, &d, &d), Some(2500));
 
-        assert_eq!(net.n_packets, 81);
+        assert_eq!(net.num_packets(), 81);
     }
 
     #[test]
     fn test_double_spend_qc2() {
-        let mut net: Net<Bank> = Net::new();
+        let mut net: NetDSBBank = Net::new();
 
         for balance in &[0, 0, 0] {
             let actor = net.initialize_proc();
@@ -462,7 +465,7 @@ mod tests {
             (b_delta == a_init_balance && c_delta == 0)
                 || (b_delta == 0 && c_delta == a_init_balance)
         );
-        assert_eq!(net.n_packets, 44);
+        assert_eq!(net.num_packets(), 44);
     }
 
     #[test]
@@ -470,7 +473,7 @@ mod tests {
         // Found by quickcheck. When we attempt to double spend and distribute
         // requests for validation evenly between procs, the network will not
         // execute any transaction.
-        let mut net: Net<Bank> = Net::new();
+        let mut net: NetDSBBank = Net::new();
 
         for balance in &[2, 3, 4, 1] {
             let actor = net.initialize_proc();
@@ -535,6 +538,6 @@ mod tests {
         assert_eq!(b_final_balance, 2);
         assert_eq!(c_final_balance, 3);
 
-        assert_eq!(net.n_packets, 60);
+        assert_eq!(net.num_packets(), 60);
     }
 }
