@@ -4,7 +4,7 @@ use sb_impl_dsb::SecureBroadcastProc;
 use sb_algo_at2::{Money, Bank, Op};
 
 struct NetBank;
-type NetDSBBank = Net<SecureBroadcastProc<Bank>, Bank>;
+type NetDSBBank = Net<SecureBroadcastProc<Bank>>;
 
 impl NetBank {
 
