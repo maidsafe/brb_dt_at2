@@ -1,13 +1,14 @@
-use sb::{Actor, Packet, SecureBroadcastImpl, SecureBroadcastNetwork, SecureBroadcastNetworkSimulator};
-use sb_net_mem::Net;
+use sb::{
+    Actor, Packet, SecureBroadcastImpl, SecureBroadcastNetwork, SecureBroadcastNetworkSimulator,
+};
+use sb_algo_at2::{Bank, Money, Op};
 use sb_impl_dsb::SecureBroadcastProc;
-use sb_algo_at2::{Money, Bank, Op};
+use sb_net_mem::Net;
 
 struct NetBank;
 type NetDSBBank = Net<SecureBroadcastProc<Bank>>;
 
 impl NetBank {
-
     pub fn find_actor_with_balance(net: &NetDSBBank, balance: Money) -> Option<Actor> {
         net.actors()
             .iter()

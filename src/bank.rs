@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use sb::{Actor, SecureBroadcastAlgorithm};
 
-use super::{Money, BankState, Op, Transfer};
+use super::{BankState, Money, Op, Transfer};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bank {
