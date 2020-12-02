@@ -1,5 +1,5 @@
 use sb::Actor;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 use super::Money;
@@ -7,7 +7,7 @@ use super::Money;
 // TODO: introduce decomp. of Account from Actor
 // pub type Account = Actor; // In the paper, Actor and Account are synonymous
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Transfer {
     pub(crate) from: Actor,
     pub(crate) to: Actor,
