@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, HashMap};
 
-use sb::Actor;
+use brb::Actor;
 
 use super::{Money, Transfer};
 

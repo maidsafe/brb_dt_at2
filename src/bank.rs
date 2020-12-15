@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use sb::{Actor, SecureBroadcastAlgorithm};
+use brb::{Actor, SecureBroadcastAlgorithm};
 
 use super::{BankState, Money, Op, Transfer};
 
