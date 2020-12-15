@@ -1,4 +1,4 @@
-use sb::Actor;
+use brb::Actor;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 

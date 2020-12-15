@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use sb::Actor;
+use brb::Actor;
 
 use super::{Money, Transfer};
 

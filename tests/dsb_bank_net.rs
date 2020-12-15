@@ -1,9 +1,9 @@
-use sb::{
+use brb::{
     Actor, Packet, SecureBroadcastImpl, SecureBroadcastNetwork, SecureBroadcastNetworkSimulator,
 };
-use sb_algo_at2::{Bank, Money, Op};
-use sb_impl_dsb::SecureBroadcastProc;
-use sb_net_mem::Net;
+use brb_algo_at2::{Bank, Money, Op};
+use brb_impl_dsb::SecureBroadcastProc;
+use brb_net_mem::Net;
 
 struct NetBank;
 type NetDSBBank = Net<SecureBroadcastProc<Bank>>;

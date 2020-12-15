@@ -1,5 +1,5 @@
 [package]
-name = "sb_algo_at2"
+name = "brb_algo_at2"
 version = "0.1.0"
 authors = ["David Rusu <davidrusu.me@gmail.com>"]
 edition = "2018"
@@ -7,17 +7,17 @@ license = "MIT OR BSD-3-Clause"
 
 [dependencies]
 crdts = "4.0.0"
-sb = { git = "https://github.com/dan-da/sb.git", package="sb", branch="separate_net_layer" }
-#sb = { path = "/home/danda/dev/maidsafe/sb" }
+brb = { git = "https://github.com/dan-da/brb.git", package="brb", branch="separate_net_layer" }
+#brb = { path = "/home/danda/dev/maidsafe/brb" }
 serde = "1.0.106"
 
 [dev-dependencies]
 # choose DSB as our secure broadcast impl for testing with.
-sb_impl_dsb = { git = "https://github.com/dan-da/sb_impl_dsb.git", branch="separate_net_layer" }
-#sb_impl_dsb = { path = "/home/danda/dev/maidsafe/sb_impl_dsb" }
+brb_impl_dsb = { git = "https://github.com/dan-da/brb_impl_dsb.git", branch="separate_net_layer" }
+#brb_impl_dsb = { path = "/home/danda/dev/maidsafe/brb_impl_dsb" }
 
-sb_net_mem = { git = "https://github.com/dan-da/sb_net_mem.git", branch="master" }
-#sb_net_mem = { path = "/home/danda/dev/maidsafe/sb_net_mem" }
+brb_net_mem = { git = "https://github.com/dan-da/brb_net_mem.git", branch="master" }
+#brb_net_mem = { path = "/home/danda/dev/maidsafe/brb_net_mem" }
 
 [profile.test]
 # Property testing is a power hungry beast, we need to go as fast as we can
