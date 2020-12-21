@@ -32,6 +32,7 @@ impl NetBank {
     ) -> Option<Vec<Packet<Op>>> {
         net.on_proc(&initiating_proc, |p| {
             p.exec_algo_op(|bank| Some(bank.open_account(bank_owner, initial_balance)))
+                .unwrap()
         })
     }
 
@@ -44,6 +45,7 @@ impl NetBank {
     ) -> Option<Vec<Packet<Op>>> {
         net.on_proc(&initiating_proc, |p| {
             p.exec_algo_op(|bank| bank.transfer(from, to, amount))
+                .unwrap()
         })
     }
 }
@@ -68,16 +70,16 @@ mod tests {
                 let member_request_packets = net.on_proc(
                     &actor,
                     |p| p.request_membership()
-                ).unwrap();
-                net.run_packets_to_completion(member_request_packets);
+                ).unwrap().unwrap();
+                net.run_packets_to_completion(member_request_packets).unwrap();
 
                 assert!(net.members().contains(&actor)); // The process is now a member
 
-                net.anti_entropy(); // We onboard the new process by running a round of anti-entropy
+                net.anti_entropy().unwrap(); // We onboard the new process by running a round of anti-entropy
 
                 // TODO: add a test where the initiating actor is different from the owner account
                 let new_bank_account_packets = NetBank::open_account(&net, actor, actor, balance).unwrap();
-                net.run_packets_to_completion(new_bank_account_packets);
+                net.run_packets_to_completion(new_bank_account_packets).unwrap();
             }
 
             assert!(net.members_are_in_agreement());
@@ -113,11 +115,11 @@ mod tests {
             for balance in balances.iter().cloned() {
                 let actor = net.initialize_proc();
 
-                net.run_packets_to_completion(net.on_proc(&actor, |p| p.request_membership()).unwrap());
-                net.anti_entropy();
+                net.run_packets_to_completion(net.on_proc(&actor, |p| p.request_membership()).unwrap().unwrap()).unwrap();
+                net.anti_entropy().unwrap();
 
                 // TODO: add a test where the initiating actor is different from hte owner account
-                net.run_packets_to_completion(NetBank::open_account(&net, actor, actor, balance).unwrap());
+                net.run_packets_to_completion(NetBank::open_account(&net, actor, actor, balance).unwrap()).unwrap();
             }
 
             let actors: Vec<Actor> = net.actors().into_iter().collect();
@@ -129,7 +131,7 @@ mod tests {
             let initial_from_balance = NetBank::balance_from_pov_of_proc(&net, &initiator, &from).unwrap();
             let initial_to_balance = NetBank::balance_from_pov_of_proc(&net, &initiator, &to).unwrap();
 
-            net.run_packets_to_completion(NetBank::transfer(&net, initiator, from, to, amount).unwrap());
+            net.run_packets_to_completion(NetBank::transfer(&net, initiator, from, to, amount).unwrap()).unwrap();
             assert!(net.members_are_in_agreement());
 
             let final_from_balance = NetBank::balance_from_pov_of_proc(&net, &initiator, &from).unwrap();
@@ -172,10 +174,10 @@ mod tests {
             for balance in balances.iter().cloned() {
                 let actor = net.initialize_proc();
 
-                net.run_packets_to_completion(net.on_proc(&actor, |p| p.request_membership()).unwrap());
-                net.anti_entropy();
+                net.run_packets_to_completion(net.on_proc(&actor, |p| p.request_membership()).unwrap().unwrap()).unwrap();
+                net.anti_entropy().unwrap();
                 // TODO: add a test where the initiating actor is different from hte owner account
-                net.run_packets_to_completion(NetBank::open_account(&net, actor, actor, balance).unwrap());
+                net.run_packets_to_completion(NetBank::open_account(&net, actor, actor, balance).unwrap()).unwrap();
             }
 
             let actors: Vec<_> = net.actors().into_iter().collect();
@@ -206,7 +208,7 @@ mod tests {
             }
 
             while let Some(packet) = packet_queue.pop() {
-                net.deliver_packet(packet);
+                net.deliver_packet(packet).unwrap();
 
                 for packet in net.response_packets() {
                     let packet_position = packet_interleave[packet_number % packet_interleave.len()];
@@ -253,14 +255,17 @@ mod tests {
         for balance in balances.iter() {
             let actor = net.initialize_proc();
 
-            let packets = net.on_proc(&actor, |p| p.request_membership()).unwrap();
-            net.run_packets_to_completion(packets);
+            let packets = net
+                .on_proc(&actor, |p| p.request_membership())
+                .unwrap()
+                .unwrap();
+            net.run_packets_to_completion(packets).unwrap();
 
-            net.anti_entropy();
+            net.anti_entropy().unwrap();
 
             // TODO: add a test where the initiating actor is different from hte owner account
             let packets = NetBank::open_account(&net, actor, actor, *balance).unwrap();
-            net.run_packets_to_completion(packets);
+            net.run_packets_to_completion(packets).unwrap();
         }
 
         assert!(net.members_are_in_agreement());
@@ -296,14 +301,17 @@ mod tests {
         for balance in &[0, 9] {
             let actor = net.initialize_proc();
 
-            let packets = net.on_proc(&actor, |p| p.request_membership()).unwrap();
-            net.run_packets_to_completion(packets);
+            let packets = net
+                .on_proc(&actor, |p| p.request_membership())
+                .unwrap()
+                .unwrap();
+            net.run_packets_to_completion(packets).unwrap();
 
-            net.anti_entropy();
+            net.anti_entropy().unwrap();
 
             // TODO: add a test where the initiating actor is different from hte owner account
             let packets = NetBank::open_account(&net, actor, actor, *balance).unwrap();
-            net.run_packets_to_completion(packets);
+            net.run_packets_to_completion(packets).unwrap();
         }
 
         let initiator = NetBank::find_actor_with_balance(&net, 9).unwrap();
@@ -319,7 +327,7 @@ mod tests {
         assert_eq!(initial_to_balance, 0);
 
         let packets = NetBank::transfer(&net, initiator, from, to, amount).unwrap();
-        net.run_packets_to_completion(packets);
+        net.run_packets_to_completion(packets).unwrap();
 
         assert!(net.members_are_in_agreement());
 
@@ -343,14 +351,17 @@ mod tests {
         for balance in &[1000, 1000, 1000, 1000] {
             let actor = net.initialize_proc();
 
-            let packets = net.on_proc(&actor, |p| p.request_membership()).unwrap();
-            net.run_packets_to_completion(packets);
+            let packets = net
+                .on_proc(&actor, |p| p.request_membership())
+                .unwrap()
+                .unwrap();
+            net.run_packets_to_completion(packets).unwrap();
 
-            net.anti_entropy();
+            net.anti_entropy().unwrap();
 
             // TODO: add a test where the initiating actor is different from hte owner account
             let packets = NetBank::open_account(&net, actor, actor, *balance).unwrap();
-            net.run_packets_to_completion(packets);
+            net.run_packets_to_completion(packets).unwrap();
         }
 
         let actors: Vec<_> = net.actors().into_iter().collect();
@@ -361,7 +372,7 @@ mod tests {
 
         // T0:  a -> b
         let packets = NetBank::transfer(&net, a, a, b, 500).unwrap();
-        net.run_packets_to_completion(packets);
+        net.run_packets_to_completion(packets).unwrap();
 
         assert!(net.members_are_in_agreement());
         assert_eq!(NetBank::balance_from_pov_of_proc(&net, &a, &a), Some(500));
@@ -371,7 +382,7 @@ mod tests {
 
         // T1: a -> c
         let packets = NetBank::transfer(&net, a, a, c, 500).unwrap();
-        net.run_packets_to_completion(packets);
+        net.run_packets_to_completion(packets).unwrap();
 
         assert!(net.members_are_in_agreement());
         assert_eq!(NetBank::balance_from_pov_of_proc(&net, &a, &a), Some(0));
@@ -381,7 +392,7 @@ mod tests {
 
         // T2: b -> d
         let packets = NetBank::transfer(&net, b, b, d, 1500).unwrap();
-        net.run_packets_to_completion(packets);
+        net.run_packets_to_completion(packets).unwrap();
 
         assert!(net.members_are_in_agreement());
         assert_eq!(NetBank::balance_from_pov_of_proc(&net, &a, &a), Some(0));
@@ -399,14 +410,17 @@ mod tests {
         for balance in &[0, 0, 0] {
             let actor = net.initialize_proc();
 
-            let packets = net.on_proc(&actor, |p| p.request_membership()).unwrap();
-            net.run_packets_to_completion(packets);
+            let packets = net
+                .on_proc(&actor, |p| p.request_membership())
+                .unwrap()
+                .unwrap();
+            net.run_packets_to_completion(packets).unwrap();
 
-            net.anti_entropy();
+            net.anti_entropy().unwrap();
 
             // TODO: add a test where the initiating actor is different from the owner account
             let packets = NetBank::open_account(&net, actor, actor, *balance).unwrap();
-            net.run_packets_to_completion(packets);
+            net.run_packets_to_completion(packets).unwrap();
 
             assert!(net.members_are_in_agreement());
         }
@@ -425,7 +439,7 @@ mod tests {
         packet_queue.extend(NetBank::transfer(&net, a, a, c, a_init_balance).unwrap());
 
         while let Some(packet) = packet_queue.pop() {
-            net.deliver_packet(packet);
+            net.deliver_packet(packet).unwrap();
             for packet in net.response_packets() {
                 packet_queue.insert(0, packet.clone());
             }
@@ -458,14 +472,17 @@ mod tests {
         for balance in &[2, 3, 4, 1] {
             let actor = net.initialize_proc();
 
-            let packets = net.on_proc(&actor, |p| p.request_membership()).unwrap();
-            net.run_packets_to_completion(packets);
+            let packets = net
+                .on_proc(&actor, |p| p.request_membership())
+                .unwrap()
+                .unwrap();
+            net.run_packets_to_completion(packets).unwrap();
 
-            net.anti_entropy();
+            net.anti_entropy().unwrap();
 
             // TODO: add a test where the initiating actor is different from hte owner account
             let packets = NetBank::open_account(&net, actor, actor, *balance).unwrap();
-            net.run_packets_to_completion(packets);
+            net.run_packets_to_completion(packets).unwrap();
         }
 
         let a = NetBank::find_actor_with_balance(&net, 1).unwrap();
@@ -495,7 +512,7 @@ mod tests {
         }
 
         while let Some(packet) = packet_queue.pop() {
-            net.deliver_packet(packet);
+            net.deliver_packet(packet).unwrap();
 
             for packet in net.response_packets() {
                 let packet_position = packet_interleave[packet_number % packet_interleave.len()]
