@@ -7,20 +7,11 @@ license = "MIT OR BSD-3-Clause"
 
 [dependencies]
 crdts = "4.0.0"
-brb = { git = "https://github.com/dan-da/brb.git", package="brb", branch="separate_net_layer" }
-#brb = { path = "/home/danda/dev/maidsafe/brb" }
+brb = { git = "https://github.com/dan-da/brb.git", package="brb", branch="dyn_membership_changes" }
 serde = "1.0.106"
 
-[dev-dependencies]
-# choose DSB as our secure broadcast impl for testing with.
-brb_impl_dsb = { git = "https://github.com/dan-da/brb_impl_dsb.git", branch="separate_net_layer" }
-#brb_impl_dsb = { path = "/home/danda/dev/maidsafe/brb_impl_dsb" }
-
-brb_net_mem = { git = "https://github.com/dan-da/brb_net_mem.git", branch="master" }
-#brb_net_mem = { path = "/home/danda/dev/maidsafe/brb_net_mem" }
-
-[profile.test]
+#[profile.test]
 # Property testing is a power hungry beast, we need to go as fast as we can
-opt-level = 3
-lto = "fat" # noticed a very significant speed up from enabling lto, perf improvement of 1m33s -> 10s
-incremental = false
+#opt-level = 3
+#lto = "fat" # noticed a very significant speed up from enabling lto, perf improvement of 1m33s -> 10s
+#incremental = false
