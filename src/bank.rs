@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use brb::{Actor, BRBAlgorithm};
+use brb::{Actor, BRBDataType};
 
 use super::{BankState, Money, Op, Transfer};
 
@@ -81,7 +81,7 @@ impl Bank {
     }
 }
 
-impl BRBAlgorithm for Bank {
+impl BRBDataType for Bank {
     type Op = Op;
     type ReplicatedState = BankState;
 
