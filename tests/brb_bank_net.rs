@@ -1,23 +1,24 @@
 use brb::{Actor, Net, Packet};
 use brb_algo_at2::{Bank, Money, Op};
 
-struct BankNet (Net<Bank>);
+struct BankNet(Net<Bank>);
 
 impl BankNet {
-
     pub fn new() -> Self {
         Self(Net::new())
     }
 
     pub fn find_actor_with_balance(&self, balance: Money) -> Option<Actor> {
-        self.0.actors()
+        self.0
+            .actors()
             .iter()
             .cloned()
             .find(|a| self.balance_from_pov_of_proc(a, a).unwrap() == balance)
     }
 
     pub fn balance_from_pov_of_proc(&self, pov: &Actor, account: &Actor) -> Option<Money> {
-        self.0.on_proc(pov, |p| p.read_state(|bank| bank.balance(account)))
+        self.0
+            .on_proc(pov, |p| p.read_state(|bank| bank.balance(account)))
     }
 
     pub fn open_account(
@@ -55,7 +56,8 @@ mod tests {
         let mut balance_iter = balances.into_iter();
         let genesis_balance = balance_iter.next().unwrap();
         let genesis_actor = net.0.initialize_proc();
-        net.0.on_proc_mut(&genesis_actor, |p| p.trust_peer(genesis_actor))
+        net.0
+            .on_proc_mut(&genesis_actor, |p| p.trust_peer(genesis_actor))
             .unwrap();
         net.0.run_packets_to_completion(
             net.open_account(genesis_actor, genesis_actor, genesis_balance)
@@ -67,7 +69,8 @@ mod tests {
             net.0.on_proc_mut(&actor, |p| p.trust_peer(genesis_actor));
             net.0.anti_entropy();
             let packets = net
-                .0.on_proc_mut(&genesis_actor, |p| p.request_membership(actor).unwrap())
+                .0
+                .on_proc_mut(&genesis_actor, |p| p.request_membership(actor).unwrap())
                 .unwrap();
             net.0.run_packets_to_completion(packets);
             // let mut msc_file = File::create("attempt_double_spend.msc").unwrap();
@@ -76,7 +79,8 @@ mod tests {
             // assert_eq!(net.count_invalid_packets(), 0);
 
             // TODO: add a test where the initiating actor is different from hte owner account
-            net.0.run_packets_to_completion(net.open_account(actor, actor, balance).unwrap());
+            net.0
+                .run_packets_to_completion(net.open_account(actor, actor, balance).unwrap());
             assert!(net.0.members_are_in_agreement());
             // assert_eq!(net.count_invalid_packets(), 0);
         }
@@ -122,7 +126,7 @@ mod tests {
             }
 
             let mut net = BankNet::new();
-            bootstrap_network(&mut net, balances.clone());
+            bootstrap_network(&mut net, balances);
 
             let actors: Vec<Actor> = net.0.actors().into_iter().collect();
 
@@ -172,7 +176,7 @@ mod tests {
             }
 
             let mut net = BankNet::new();
-            bootstrap_network(&mut net, balances.clone());
+            bootstrap_network(&mut net, balances);
 
             let actors: Vec<_> = net.0.actors().into_iter().collect();
             let a = actors[0];
@@ -274,7 +278,7 @@ mod tests {
     fn test_transfer_is_actually_moving_money_qc1() {
         let balances = vec![0, 9];
         let mut net = BankNet::new();
-        bootstrap_network(&mut net, balances.clone());
+        bootstrap_network(&mut net, balances);
 
         let initiator = net.find_actor_with_balance(9).unwrap();
         let from = initiator;
@@ -311,7 +315,7 @@ mod tests {
     fn test_causal_dependancy() {
         let balances = vec![1000, 1000, 1000, 1000];
         let mut net = BankNet::new();
-        bootstrap_network(&mut net, balances.clone());
+        bootstrap_network(&mut net, balances);
 
         let actors: Vec<_> = net.0.actors().into_iter().collect();
         let a = actors[0];
@@ -353,7 +357,7 @@ mod tests {
     fn test_double_spend_qc2() {
         let balances = vec![0, 0, 0];
         let mut net = BankNet::new();
-        bootstrap_network(&mut net, balances.clone());
+        bootstrap_network(&mut net, balances);
 
         let actors: Vec<_> = net.0.actors().into_iter().collect();
         let a = actors[0];
@@ -399,7 +403,7 @@ mod tests {
 
         let balances = vec![2, 3, 4, 1];
         let mut net = BankNet::new();
-        bootstrap_network(&mut net, balances.clone());
+        bootstrap_network(&mut net, balances);
 
         let a = net.find_actor_with_balance(1).unwrap();
         let b = net.find_actor_with_balance(2).unwrap();
