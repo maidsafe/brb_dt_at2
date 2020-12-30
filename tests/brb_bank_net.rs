@@ -57,7 +57,7 @@ mod tests {
         let genesis_balance = balance_iter.next().unwrap();
         let genesis_actor = net.0.initialize_proc();
         net.0
-            .on_proc_mut(&genesis_actor, |p| p.trust_peer(genesis_actor))
+            .on_proc_mut(&genesis_actor, |p| p.force_join(genesis_actor))
             .unwrap();
         net.0.run_packets_to_completion(
             net.open_account(genesis_actor, genesis_actor, genesis_balance)
@@ -66,13 +66,13 @@ mod tests {
 
         for balance in balance_iter {
             let actor = net.0.initialize_proc();
-            net.0.on_proc_mut(&actor, |p| p.trust_peer(genesis_actor));
-            net.0.anti_entropy();
+            net.0.on_proc_mut(&actor, |p| p.force_join(genesis_actor));
             let packets = net
                 .0
                 .on_proc_mut(&genesis_actor, |p| p.request_membership(actor).unwrap())
                 .unwrap();
             net.0.run_packets_to_completion(packets);
+            net.0.anti_entropy();
             // let mut msc_file = File::create("attempt_double_spend.msc").unwrap();
             // msc_file.write_all(net.generate_msc().as_bytes()).unwrap();
             assert!(net.0.members_are_in_agreement());
@@ -271,7 +271,7 @@ mod tests {
             assert_eq!(remaining_balances.len(), 0);
         }
 
-        assert_eq!(net.0.n_packets, 12);
+        assert_eq!(net.0.n_packets, 16);
     }
 
     #[test]
@@ -308,7 +308,7 @@ mod tests {
         assert_eq!(from_balance_abs_delta, amount);
         assert_eq!(from_balance_abs_delta, to_balance_abs_delta);
 
-        assert_eq!(net.0.n_packets, 18);
+        assert_eq!(net.0.n_packets, 22);
     }
 
     #[test]
@@ -350,7 +350,7 @@ mod tests {
         assert_eq!(net.balance_from_pov_of_proc(&c, &c), Some(1500));
         assert_eq!(net.balance_from_pov_of_proc(&d, &d), Some(2500));
 
-        assert_eq!(net.0.n_packets, 108);
+        assert_eq!(net.0.n_packets, 129);
     }
 
     #[test]
@@ -392,7 +392,7 @@ mod tests {
             (b_delta == a_init_balance && c_delta == 0)
                 || (b_delta == 0 && c_delta == a_init_balance)
         );
-        assert_eq!(net.0.n_packets, 45);
+        assert_eq!(net.0.n_packets, 56);
     }
 
     #[test]
@@ -451,6 +451,6 @@ mod tests {
         assert_eq!(b_final_balance, 2);
         assert_eq!(c_final_balance, 3);
 
-        assert_eq!(net.0.n_packets, 84);
+        assert_eq!(net.0.n_packets, 105);
     }
 }
