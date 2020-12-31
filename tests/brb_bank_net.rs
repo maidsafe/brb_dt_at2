@@ -1,5 +1,5 @@
 use brb::{Actor, Net, Packet};
-use brb_algo_at2::{Bank, Money, Op};
+use brb_dt_at2::{Bank, Money, Op};
 
 struct BankNet(Net<Bank>);
 
@@ -28,7 +28,7 @@ impl BankNet {
         initial_balance: Money,
     ) -> Option<Vec<Packet<Op>>> {
         self.0.on_proc(&initiating_proc, |p| {
-            p.exec_algo_op(|bank| Some(bank.open_account(bank_owner, initial_balance)))
+            p.exec_dt_op(|bank| Some(bank.open_account(bank_owner, initial_balance)))
                 .unwrap()
         })
     }
@@ -41,7 +41,7 @@ impl BankNet {
         amount: Money,
     ) -> Option<Vec<Packet<Op>>> {
         self.0.on_proc(&initiating_proc, |p| {
-            p.exec_algo_op(|bank| bank.transfer(from, to, amount))
+            p.exec_dt_op(|bank| bank.transfer(from, to, amount))
                 .unwrap()
         })
     }
