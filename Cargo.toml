@@ -7,5 +7,5 @@ license = "MIT OR BSD-3-Clause"
 
 [dependencies]
 crdts = "4.0.0"
-brb = { git = "https://github.com/dan-da/brb.git", branch="master" }
+brb = { git = "https://github.com/maidsafe/brb.git", branch="master" }
 serde = "1.0.106"
