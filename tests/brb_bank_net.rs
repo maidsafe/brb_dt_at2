@@ -17,8 +17,7 @@ impl BankNet {
     }
 
     pub fn balance_from_pov_of_proc(&self, pov: &Actor, account: &Actor) -> Option<Money> {
-        self.0
-            .on_proc(pov, |p| p.read_state(|bank| bank.balance(account)))
+        self.0.on_proc(pov, |p| p.dt.balance(account))
     }
 
     pub fn open_account(
@@ -28,7 +27,7 @@ impl BankNet {
         initial_balance: Money,
     ) -> Option<Vec<Packet<Op>>> {
         self.0.on_proc(&initiating_proc, |p| {
-            p.exec_dt_op(|bank| Some(bank.open_account(bank_owner, initial_balance)))
+            p.exec_op(p.dt.open_account(bank_owner, initial_balance))
                 .unwrap()
         })
     }
@@ -41,8 +40,9 @@ impl BankNet {
         amount: Money,
     ) -> Option<Vec<Packet<Op>>> {
         self.0.on_proc(&initiating_proc, |p| {
-            p.exec_dt_op(|bank| bank.transfer(from, to, amount))
-                .unwrap()
+            p.dt.transfer(from, to, amount)
+                .map(|op| p.exec_op(op).unwrap())
+                .unwrap_or_default()
         })
     }
 }
@@ -63,6 +63,8 @@ mod tests {
             net.open_account(genesis_actor, genesis_actor, genesis_balance)
                 .unwrap(),
         );
+
+        assert!(net.0.members_are_in_agreement());
 
         for balance in balance_iter {
             let actor = net.0.initialize_proc();
