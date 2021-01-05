@@ -1,8 +1,8 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use brb::{Actor, BRBDataType};
 
-use super::{BankState, Money, Op, Transfer};
+use super::{Money, Op, Transfer};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bank {
@@ -10,8 +10,11 @@ pub struct Bank {
     // The set of dependencies of the next outgoing transfer
     deps: BTreeSet<Transfer>,
 
-    // The state that is replicated and managed by the network
-    replicated: BankState,
+    // The initial balances when opening an actor opened an account
+    initial_balances: HashMap<Actor, Money>,
+
+    // Set of all transfers impacting a given actor
+    hist: HashMap<Actor, BTreeSet<Transfer>>,
 }
 
 impl Bank {
@@ -20,8 +23,7 @@ impl Bank {
     }
 
     pub fn initial_balance(&self, actor: &Actor) -> Money {
-        self.replicated
-            .initial_balances
+        self.initial_balances
             .get(&actor)
             .cloned()
             .unwrap_or_else(|| panic!("[ERROR] No initial balance for {}", actor))
@@ -53,11 +55,7 @@ impl Bank {
     }
 
     fn history(&self, actor: &Actor) -> BTreeSet<Transfer> {
-        self.replicated
-            .hist
-            .get(&actor)
-            .cloned()
-            .unwrap_or_default()
+        self.hist.get(&actor).cloned().unwrap_or_default()
     }
 
     pub fn transfer(&self, from: Actor, to: Actor, amount: Money) -> Option<Op> {
@@ -83,35 +81,13 @@ impl Bank {
 
 impl BRBDataType for Bank {
     type Op = Op;
-    type ReplicatedState = BankState;
 
     fn new(id: Actor) -> Self {
         Bank {
             id,
             deps: Default::default(),
-            replicated: BankState {
-                initial_balances: Default::default(),
-                hist: Default::default(),
-            },
-        }
-    }
-
-    fn state(&self) -> Self::ReplicatedState {
-        self.replicated.clone()
-    }
-
-    fn sync_from(&mut self, other: Self::ReplicatedState) {
-        for (id, balance) in other.initial_balances {
-            if let Some(existing_balance) = self.replicated.initial_balances.get(&id) {
-                assert_eq!(*existing_balance, balance);
-            } else {
-                self.replicated.initial_balances.insert(id, balance);
-            }
-        }
-
-        for (id, hist) in other.hist {
-            let account_hist = self.replicated.hist.entry(id).or_default();
-            account_hist.extend(hist);
+            initial_balances: Default::default(),
+            hist: Default::default(),
         }
     }
 
@@ -124,13 +100,11 @@ impl BRBDataType for Bank {
                     "Sender initiated transfer on behalf of other proc",
                 ),
                 (
-                    self.replicated
-                        .initial_balances
-                        .contains_key(&transfer.from),
+                    self.initial_balances.contains_key(&transfer.from),
                     "From account does not exist",
                 ),
                 (
-                    self.replicated.initial_balances.contains_key(&transfer.to),
+                    self.initial_balances.contains_key(&transfer.to),
                     "To account does not exist",
                 ),
                 (
@@ -148,7 +122,7 @@ impl BRBDataType for Bank {
                     "Initiator is not the owner of the new account",
                 ),
                 (
-                    !self.replicated.initial_balances.contains_key(owner),
+                    !self.initial_balances.contains_key(owner),
                     "Owner already has an account",
                 ),
             ],
@@ -166,15 +140,13 @@ impl BRBDataType for Bank {
         match op {
             Op::Transfer(transfer) => {
                 // Update the history for the outgoing account
-                self.replicated
-                    .hist
+                self.hist
                     .entry(transfer.from)
                     .or_default()
                     .insert(transfer.clone());
 
                 // Update the history for the incoming account
-                self.replicated
-                    .hist
+                self.hist
                     .entry(transfer.to)
                     .or_default()
                     .insert(transfer.clone());
@@ -198,7 +170,7 @@ impl BRBDataType for Bank {
             }
             Op::OpenAccount { owner, balance } => {
                 println!("[BANK] opening new account for {} with ${}", owner, balance);
-                self.replicated.initial_balances.insert(owner, balance);
+                self.initial_balances.insert(owner, balance);
             }
         }
     }
