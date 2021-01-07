@@ -5,7 +5,9 @@
 
 # About
 
-Please see the [sb crate](https://github.com/maidsafe/sb/).
+An implementation of [AT2](https://arxiv.org/pdf/1812.10844.pdf) as a BRBDataType inside the [BRB](https://github.com/maidsafe/brb/) framework
+
+Please see the [brb crate](https://github.com/maidsafe/brb/).
 
 ## License
 
