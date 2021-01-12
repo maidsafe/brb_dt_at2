@@ -7,6 +7,8 @@
 
 An implementation of [AT2](https://arxiv.org/pdf/1812.10844.pdf) as a BRBDataType inside the [BRB](https://github.com/maidsafe/brb/) framework
 
+This enables AT2 operations to be transmitted in a BFT manner using Byzantine Reliable Broadcast.
+
 Please see the [brb crate](https://github.com/maidsafe/brb/).
 
 ## License
