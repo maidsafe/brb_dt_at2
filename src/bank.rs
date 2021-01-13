@@ -81,12 +81,18 @@ impl Bank {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Validation {
-    NotInitiatedByAccountOwner { source: Actor, owner: Actor },
+    NotInitiatedByAccountOwner {
+        source: Actor,
+        owner: Actor,
+    },
     FromAccountDoesNotExist(Actor),
     ToAccountDoesNotExist(Actor),
-    InsufficientFunds { balance: Money, transfer_amount: Money },
+    InsufficientFunds {
+        balance: Money,
+        transfer_amount: Money,
+    },
     MissingDependentOps(BTreeSet<Transfer>),
-    OwnerAlreadyHasAnAccount
+    OwnerAlreadyHasAnAccount,
 }
 
 impl BRBDataType for Bank {
@@ -122,7 +128,11 @@ impl BRBDataType for Bank {
                     })
                 } else if !transfer.deps.is_subset(&self.history(&transfer.from)) {
                     Err(Validation::MissingDependentOps(
-                        transfer.deps.difference(&self.history(&transfer.from)).cloned().collect()
+                        transfer
+                            .deps
+                            .difference(&self.history(&transfer.from))
+                            .cloned()
+                            .collect(),
                     ))
                 } else {
                     Ok(())
@@ -131,13 +141,14 @@ impl BRBDataType for Bank {
             Op::OpenAccount { owner, .. } => {
                 if source != owner {
                     Err(Validation::NotInitiatedByAccountOwner {
-                        source: *source, owner: *owner
+                        source: *source,
+                        owner: *owner,
                     })
                 } else if self.initial_balances.contains_key(owner) {
                     Err(Validation::OwnerAlreadyHasAnAccount)
                 } else {
-		    Ok(())
-		}
+                    Ok(())
+                }
             }
         }
     }
