@@ -79,8 +79,19 @@ impl Bank {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum Validation {
+    NotInitiatedByAccountOwner { source: Actor, owner: Actor },
+    FromAccountDoesNotExist(Actor),
+    ToAccountDoesNotExist(Actor),
+    InsufficientFunds { balance: Money, transfer_amount: Money },
+    MissingDependentOps(BTreeSet<Transfer>),
+    OwnerAlreadyHasAnAccount
+}
+
 impl BRBDataType for Bank {
     type Op = Op;
+    type Validation = Validation;
 
     fn new(id: Actor) -> Self {
         Bank {
@@ -92,47 +103,43 @@ impl BRBDataType for Bank {
     }
 
     /// Protection against Byzantines
-    fn validate(&self, from: &Actor, op: &Op) -> bool {
-        let validation_tests = match op {
-            Op::Transfer(transfer) => vec![
-                (
-                    from == &transfer.from,
-                    "Sender initiated transfer on behalf of other proc",
-                ),
-                (
-                    self.initial_balances.contains_key(&transfer.from),
-                    "From account does not exist",
-                ),
-                (
-                    self.initial_balances.contains_key(&transfer.to),
-                    "To account does not exist",
-                ),
-                (
-                    self.balance(from) >= transfer.amount,
-                    "Sender has insufficient funds",
-                ),
-                (
-                    transfer.deps.is_subset(&self.history(from)),
-                    "Missing dependent ops",
-                ),
-            ],
-            Op::OpenAccount { owner, balance: _ } => vec![
-                (
-                    from == owner,
-                    "Initiator is not the owner of the new account",
-                ),
-                (
-                    !self.initial_balances.contains_key(owner),
-                    "Owner already has an account",
-                ),
-            ],
-        };
-
-        validation_tests
-            .into_iter()
-            .find(|(is_valid, _msg)| !is_valid)
-            .map(|(_test, msg)| println!("[BANK/VALIDATION] {} {:?}, {:?}", msg, op, self))
-            .is_none()
+    fn validate(&self, source: &Actor, op: &Op) -> Result<(), Self::Validation> {
+        match op {
+            Op::Transfer(transfer) => {
+                if source != &transfer.from {
+                    Err(Validation::NotInitiatedByAccountOwner {
+                        source: *source,
+                        owner: transfer.from,
+                    })
+                } else if !self.initial_balances.contains_key(&transfer.from) {
+                    Err(Validation::FromAccountDoesNotExist(transfer.from))
+                } else if !self.initial_balances.contains_key(&transfer.to) {
+                    Err(Validation::ToAccountDoesNotExist(transfer.to))
+                } else if self.balance(&transfer.from) < transfer.amount {
+                    Err(Validation::InsufficientFunds {
+                        balance: self.balance(&transfer.from),
+                        transfer_amount: transfer.amount,
+                    })
+                } else if !transfer.deps.is_subset(&self.history(&transfer.from)) {
+                    Err(Validation::MissingDependentOps(
+                        transfer.deps.difference(&self.history(&transfer.from)).cloned().collect()
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
+            Op::OpenAccount { owner, .. } => {
+                if source != owner {
+                    Err(Validation::NotInitiatedByAccountOwner {
+                        source: *source, owner: *owner
+                    })
+                } else if self.initial_balances.contains_key(owner) {
+                    Err(Validation::OwnerAlreadyHasAnAccount)
+                } else {
+		    Ok(())
+		}
+            }
+        }
     }
 
     /// Executed once an op has been validated

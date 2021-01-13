@@ -6,6 +6,6 @@ edition = "2018"
 license = "MIT OR BSD-3-Clause"
 
 [dependencies]
-crdts = "4.0.0"
+crdts = "5.0.0"
 brb = { git = "https://github.com/maidsafe/brb.git", branch="master" }
 serde = "1.0.106"
