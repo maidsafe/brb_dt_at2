@@ -80,7 +80,7 @@ impl Bank {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Validation {
+pub enum ValidationError {
     NotInitiatedByAccountOwner {
         source: Actor,
         owner: Actor,
@@ -97,7 +97,7 @@ pub enum Validation {
 
 impl BRBDataType for Bank {
     type Op = Op;
-    type Validation = Validation;
+    type ValidationError = ValidationError;
 
     fn new(id: Actor) -> Self {
         Bank {
@@ -109,25 +109,25 @@ impl BRBDataType for Bank {
     }
 
     /// Protection against Byzantines
-    fn validate(&self, source: &Actor, op: &Op) -> Result<(), Self::Validation> {
+    fn validate(&self, source: &Actor, op: &Op) -> Result<(), Self::ValidationError> {
         match op {
             Op::Transfer(transfer) => {
                 if source != &transfer.from {
-                    Err(Validation::NotInitiatedByAccountOwner {
+                    Err(ValidationError::NotInitiatedByAccountOwner {
                         source: *source,
                         owner: transfer.from,
                     })
                 } else if !self.initial_balances.contains_key(&transfer.from) {
-                    Err(Validation::FromAccountDoesNotExist(transfer.from))
+                    Err(ValidationError::FromAccountDoesNotExist(transfer.from))
                 } else if !self.initial_balances.contains_key(&transfer.to) {
-                    Err(Validation::ToAccountDoesNotExist(transfer.to))
+                    Err(ValidationError::ToAccountDoesNotExist(transfer.to))
                 } else if self.balance(&transfer.from) < transfer.amount {
-                    Err(Validation::InsufficientFunds {
+                    Err(ValidationError::InsufficientFunds {
                         balance: self.balance(&transfer.from),
                         transfer_amount: transfer.amount,
                     })
                 } else if !transfer.deps.is_subset(&self.history(&transfer.from)) {
-                    Err(Validation::MissingDependentOps(
+                    Err(ValidationError::MissingDependentOps(
                         transfer
                             .deps
                             .difference(&self.history(&transfer.from))
@@ -140,12 +140,12 @@ impl BRBDataType for Bank {
             }
             Op::OpenAccount { owner, .. } => {
                 if source != owner {
-                    Err(Validation::NotInitiatedByAccountOwner {
+                    Err(ValidationError::NotInitiatedByAccountOwner {
                         source: *source,
                         owner: *owner,
                     })
                 } else if self.initial_balances.contains_key(owner) {
-                    Err(Validation::OwnerAlreadyHasAnAccount)
+                    Err(ValidationError::OwnerAlreadyHasAnAccount)
                 } else {
                     Ok(())
                 }
