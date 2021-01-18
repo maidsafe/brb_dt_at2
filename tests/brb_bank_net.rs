@@ -1,7 +1,8 @@
-use brb::{Actor, Net, Packet};
+use brb::net::{Actor, Net, Sig};
 use brb_dt_at2::{Bank, Money, Op};
 
-struct BankNet(Net<Bank>);
+struct BankNet(Net<Bank<Actor>>);
+type Packet = brb::Packet<Actor, Sig, Op<Actor>>;
 
 impl BankNet {
     pub fn new() -> Self {
@@ -25,7 +26,7 @@ impl BankNet {
         initiating_proc: Actor,
         bank_owner: Actor,
         initial_balance: Money,
-    ) -> Option<Vec<Packet<Op>>> {
+    ) -> Option<Vec<Packet>> {
         self.0.on_proc(&initiating_proc, |p| {
             p.exec_op(p.dt.open_account(bank_owner, initial_balance))
                 .unwrap()
@@ -38,7 +39,7 @@ impl BankNet {
         from: Actor,
         to: Actor,
         amount: Money,
-    ) -> Option<Vec<Packet<Op>>> {
+    ) -> Option<Vec<Packet>> {
         self.0.on_proc(&initiating_proc, |p| {
             p.dt.transfer(from, to, amount)
                 .map(|op| p.exec_op(op).unwrap())
@@ -193,7 +194,7 @@ mod tests {
             let mut second_broadcast_packets = net.transfer(a, a, c, a_init_balance).unwrap();
 
             let mut packet_number = 0;
-            let mut packet_queue: Vec<Packet<Op>> = Vec::new();
+            let mut packet_queue: Vec<Packet> = Vec::new();
 
             // Interleave the initial broadcast packets
             while !first_broadcast_packets.is_empty() || !second_broadcast_packets.is_empty() {
@@ -370,7 +371,7 @@ mod tests {
         let b_init_balance = net.balance_from_pov_of_proc(&b, &b).unwrap();
         let c_init_balance = net.balance_from_pov_of_proc(&c, &c).unwrap();
 
-        let mut packet_queue: Vec<Packet<Op>> = Vec::new();
+        let mut packet_queue: Vec<Packet> = Vec::new();
         packet_queue.extend(net.transfer(a, a, b, a_init_balance).unwrap());
         packet_queue.extend(net.transfer(a, a, c, a_init_balance).unwrap());
 
@@ -415,7 +416,7 @@ mod tests {
         let mut second_broadcast_packets = net.transfer(a, a, c, 1).unwrap();
 
         let mut packet_number = 0;
-        let mut packet_queue: Vec<Packet<Op>> = Vec::new();
+        let mut packet_queue: Vec<Packet> = Vec::new();
         let packet_interleave = vec![0, 0, 15, 9, 67, 99];
 
         // Interleave the initial broadcast packets

@@ -1,11 +1,11 @@
-use serde::{Deserialize, Serialize};
+use core::hash::Hash;
 
-use brb::Actor;
+use serde::{Deserialize, Serialize};
 
 use super::{Money, Transfer};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum Op {
-    Transfer(Transfer), // Split out Transfer into it's own struct to get some more type safety in Bank struct
-    OpenAccount { owner: Actor, balance: Money },
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Op<A: Ord + Hash> {
+    Transfer(Transfer<A>), // Split out Transfer into it's own struct to get some more type safety in Bank struct
+    OpenAccount { owner: A, balance: Money },
 }

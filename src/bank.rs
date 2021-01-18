@@ -1,35 +1,37 @@
-use std::collections::{BTreeSet, HashMap};
+use core::{fmt::Debug, hash::Hash};
+use std::collections::{BTreeMap, BTreeSet};
 
-use brb::{Actor, BRBDataType};
+use brb::BRBDataType;
+use serde::Serialize;
 
 use super::{Money, Op, Transfer};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Bank {
-    id: Actor,
+pub struct Bank<A: Ord + Hash> {
+    id: A,
     // The set of dependencies of the next outgoing transfer
-    deps: BTreeSet<Transfer>,
+    deps: BTreeSet<Transfer<A>>,
 
     // The initial balances when opening an actor opened an account
-    initial_balances: HashMap<Actor, Money>,
+    initial_balances: BTreeMap<A, Money>,
 
     // Set of all transfers impacting a given actor
-    hist: HashMap<Actor, BTreeSet<Transfer>>,
+    hist: BTreeMap<A, BTreeSet<Transfer<A>>>,
 }
 
-impl Bank {
-    pub fn open_account(&self, owner: Actor, balance: Money) -> Op {
+impl<A: Ord + Hash + Debug + Clone> Bank<A> {
+    pub fn open_account(&self, owner: A, balance: Money) -> Op<A> {
         Op::OpenAccount { owner, balance }
     }
 
-    pub fn initial_balance(&self, actor: &Actor) -> Money {
+    pub fn initial_balance(&self, actor: &A) -> Money {
         self.initial_balances
             .get(&actor)
             .cloned()
-            .unwrap_or_else(|| panic!("[ERROR] No initial balance for {}", actor))
+            .unwrap_or_else(|| panic!("[ERROR] No initial balance for {:?}", actor))
     }
 
-    pub fn balance(&self, actor: &Actor) -> Money {
+    pub fn balance(&self, actor: &A) -> Money {
         // TODO: in the paper, when we read from an actor, we union the actor
         //       history with the deps, I don't see a use for this since anything
         //       in deps is already in the actor history. Think this through a
@@ -54,16 +56,16 @@ impl Bank {
         balance as Money
     }
 
-    fn history(&self, actor: &Actor) -> BTreeSet<Transfer> {
+    fn history(&self, actor: &A) -> BTreeSet<Transfer<A>> {
         self.hist.get(&actor).cloned().unwrap_or_default()
     }
 
-    pub fn transfer(&self, from: Actor, to: Actor, amount: Money) -> Option<Op> {
+    pub fn transfer(&self, from: A, to: A, amount: Money) -> Option<Op<A>> {
         let balance = self.balance(&from);
         // TODO: we should leave this validation to the self.validate logic, no need to duplicate it here
         if balance < amount {
             println!(
-                "{} does not have enough money to transfer {} to {}. (balance: {})",
+                "{:?} does not have enough money to transfer ${} to {:?}. (balance: ${})",
                 from, amount, to, balance
             );
             None
@@ -80,26 +82,26 @@ impl Bank {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum ValidationError {
+pub enum ValidationError<A: Ord + Hash> {
     NotInitiatedByAccountOwner {
-        source: Actor,
-        owner: Actor,
+        source: A,
+        owner: A,
     },
-    FromAccountDoesNotExist(Actor),
-    ToAccountDoesNotExist(Actor),
+    FromAccountDoesNotExist(A),
+    ToAccountDoesNotExist(A),
     InsufficientFunds {
         balance: Money,
         transfer_amount: Money,
     },
-    MissingDependentOps(BTreeSet<Transfer>),
+    MissingDependentOps(BTreeSet<Transfer<A>>),
     OwnerAlreadyHasAnAccount,
 }
 
-impl BRBDataType for Bank {
-    type Op = Op;
-    type ValidationError = ValidationError;
+impl<A: Ord + Hash + Debug + Clone + 'static + Serialize> BRBDataType<A> for Bank<A> {
+    type Op = Op<A>;
+    type ValidationError = ValidationError<A>;
 
-    fn new(id: Actor) -> Self {
+    fn new(id: A) -> Self {
         Bank {
             id,
             deps: Default::default(),
@@ -109,18 +111,20 @@ impl BRBDataType for Bank {
     }
 
     /// Protection against Byzantines
-    fn validate(&self, source: &Actor, op: &Op) -> Result<(), Self::ValidationError> {
+    fn validate(&self, source: &A, op: &Self::Op) -> Result<(), Self::ValidationError> {
         match op {
             Op::Transfer(transfer) => {
                 if source != &transfer.from {
                     Err(ValidationError::NotInitiatedByAccountOwner {
-                        source: *source,
-                        owner: transfer.from,
+                        source: source.clone(),
+                        owner: transfer.from.clone(),
                     })
                 } else if !self.initial_balances.contains_key(&transfer.from) {
-                    Err(ValidationError::FromAccountDoesNotExist(transfer.from))
+                    Err(ValidationError::FromAccountDoesNotExist(
+                        transfer.from.clone(),
+                    ))
                 } else if !self.initial_balances.contains_key(&transfer.to) {
-                    Err(ValidationError::ToAccountDoesNotExist(transfer.to))
+                    Err(ValidationError::ToAccountDoesNotExist(transfer.to.clone()))
                 } else if self.balance(&transfer.from) < transfer.amount {
                     Err(ValidationError::InsufficientFunds {
                         balance: self.balance(&transfer.from),
@@ -141,8 +145,8 @@ impl BRBDataType for Bank {
             Op::OpenAccount { owner, .. } => {
                 if source != owner {
                     Err(ValidationError::NotInitiatedByAccountOwner {
-                        source: *source,
-                        owner: *owner,
+                        source: source.clone(),
+                        owner: owner.clone(),
                     })
                 } else if self.initial_balances.contains_key(owner) {
                     Err(ValidationError::OwnerAlreadyHasAnAccount)
@@ -154,18 +158,18 @@ impl BRBDataType for Bank {
     }
 
     /// Executed once an op has been validated
-    fn apply(&mut self, op: Op) {
+    fn apply(&mut self, op: Self::Op) {
         match op {
             Op::Transfer(transfer) => {
                 // Update the history for the outgoing account
                 self.hist
-                    .entry(transfer.from)
+                    .entry(transfer.from.clone())
                     .or_default()
                     .insert(transfer.clone());
 
                 // Update the history for the incoming account
                 self.hist
-                    .entry(transfer.to)
+                    .entry(transfer.to.clone())
                     .or_default()
                     .insert(transfer.clone());
 
@@ -187,7 +191,10 @@ impl BRBDataType for Bank {
                 }
             }
             Op::OpenAccount { owner, balance } => {
-                println!("[BANK] opening new account for {} with ${}", owner, balance);
+                println!(
+                    "[BANK] opening new account for {:?} with ${}",
+                    owner, balance
+                );
                 self.initial_balances.insert(owner, balance);
             }
         }
