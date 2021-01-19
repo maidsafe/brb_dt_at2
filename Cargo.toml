@@ -1,12 +1,11 @@
 [package]
 name = "brb_dt_at2"
-version = "0.1.0"
+version = "1.0.1"
 description = "An implementation of AT2 as a BRBDataType inside the BRB framework"
 authors = [ "David Rusu <davidrusu.me@gmail.com>" ]
 license = "MIT OR BSD-3-Clause"
 repository = "https://github.com/maidsafe/brb_dt_at2"
 edition = "2018"
-
 
 [dependencies]
 crdts = "5.0.0"
