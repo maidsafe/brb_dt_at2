@@ -9,3 +9,4 @@ license = "MIT OR BSD-3-Clause"
 crdts = "5.0.0"
 brb = { git = "https://github.com/maidsafe/brb.git", branch="master" }
 serde = "1.0.106"
+log = "0.4.13"

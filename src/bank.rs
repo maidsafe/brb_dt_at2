@@ -4,6 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use brb::BRBDataType;
 use serde::Serialize;
 
+use log::{info, warn};
+
 use super::{Money, Op, Transfer};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,7 +66,7 @@ impl<A: Ord + Hash + Debug + Clone> Bank<A> {
         let balance = self.balance(&from);
         // TODO: we should leave this validation to the self.validate logic, no need to duplicate it here
         if balance < amount {
-            println!(
+            warn!(
                 "{:?} does not have enough money to transfer ${} to {:?}. (balance: ${})",
                 from, amount, to, balance
             );
@@ -191,7 +193,7 @@ impl<A: Ord + Hash + Debug + Clone + 'static + Serialize> BRBDataType<A> for Ban
                 }
             }
             Op::OpenAccount { owner, balance } => {
-                println!(
+                info!(
                     "[BANK] opening new account for {:?} with ${}",
                     owner, balance
                 );
