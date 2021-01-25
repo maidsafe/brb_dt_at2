@@ -1,3 +1,25 @@
+// Copyright 2021 MaidSafe.net limited.
+//
+// This SAFE Network Software is licensed to you under the MIT license <LICENSE-MIT
+// http://opensource.org/licenses/MIT> or the Modified BSD license <LICENSE-BSD
+// https://opensource.org/licenses/BSD-3-Clause>, at your option. This file may not be copied,
+// modified, or distributed except according to those terms. Please review the Licences for the
+// specific language governing permissions and limitations relating to use of the SAFE Network
+// Software.
+
+//! The Bank represents current AT2 state for a given
+//! `Actor` (account), plus all-time transaction history for all
+//! actors.
+//!
+//! It can be thought of as a distributed ledger of accounts
+//! where each Bank instance sees and records all accounts and
+//! their transfers, but represents a particular account owner
+//! and can initiate outgoing transfers for that one account only.
+//!
+//! A note on terminology:
+//! `Actor` and Account are the same thing. Each `Transfer` is
+//! associated with an `Actor`.  There is no Account data structure.
+
 use core::{fmt::Debug, hash::Hash};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -6,26 +28,45 @@ use serde::Serialize;
 
 use log::{info, warn};
 
+use thiserror::Error;
+
 use super::{Money, Op, Transfer};
 
+/// AT2 `Bank` for a particular `Actor`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bank<A: Ord + Hash> {
+    /// Actor associated with this Bank instance
     id: A,
-    // The set of dependencies of the next outgoing transfer
+
+    /// The set of dependencies of the next outgoing transfer.
+    /// Note that we can only initiate an outgoing transfer
+    /// for the account identified by Bank::id
     deps: BTreeSet<Transfer<A>>,
 
-    // The initial balances when opening an actor opened an account
+    // PERF: Transfer, used in deps and hist, is recursive and grows too quickly.
+    /// The initial balances when an actor opened an account
+    /// Normally 0, but this enables an application to force
+    /// a non-zero starting balance.  Though of course other
+    /// nodes must agree.
     initial_balances: BTreeMap<A, Money>,
 
-    // Set of all transfers impacting a given actor
+    /// Set of all transfers, by actor
     hist: BTreeMap<A, BTreeSet<Transfer<A>>>,
 }
 
 impl<A: Ord + Hash + Debug + Clone> Bank<A> {
+    /// Open a new account.
+    ///
+    /// The balance field should normally be 0, but this field
+    /// enables an application to force a non-zero starting balance.
+    /// Though of course other nodes must agree.  This could for
+    /// example be used to pre-fund a "MINT" account that spends
+    /// money into existence (in other accounts) over time.
     pub fn open_account(&self, owner: A, balance: Money) -> Op<A> {
         Op::OpenAccount { owner, balance }
     }
 
+    /// Returns an account's starting balance, prior to any transfers in or out.
     pub fn initial_balance(&self, actor: &A) -> Money {
         self.initial_balances
             .get(&actor)
@@ -33,7 +74,13 @@ impl<A: Ord + Hash + Debug + Clone> Bank<A> {
             .unwrap_or_else(|| panic!("[ERROR] No initial balance for {:?}", actor))
     }
 
+    /// Returns an account's present balance.
+    ///
+    /// This is presently a slow operation as the entire history of all
+    /// transfers is iterated.  i.e., it degrades O(n) with the size of the history.
     pub fn balance(&self, actor: &A) -> Money {
+        // PERF: Can we make this function faster?  perhaps even O(1)?
+
         // TODO: in the paper, when we read from an actor, we union the actor
         //       history with the deps, I don't see a use for this since anything
         //       in deps is already in the actor history. Think this through a
@@ -58,11 +105,15 @@ impl<A: Ord + Hash + Debug + Clone> Bank<A> {
         balance as Money
     }
 
+    /// Returns complete history of transfers for provided actor
     fn history(&self, actor: &A) -> BTreeSet<Transfer<A>> {
+        // PERF: can we make this faster, without need to clone?
         self.hist.get(&actor).cloned().unwrap_or_default()
     }
 
+    /// Generates a new Transfer operation (but does not apply it)
     pub fn transfer(&self, from: A, to: A, amount: Money) -> Option<Op<A>> {
+        // PERF: balance() is presently an expensive call.
         let balance = self.balance(&from);
         // TODO: we should leave this validation to the self.validate logic, no need to duplicate it here
         if balance < amount {
@@ -83,25 +134,42 @@ impl<A: Ord + Hash + Debug + Clone> Bank<A> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum ValidationError<A: Ord + Hash> {
-    NotInitiatedByAccountOwner {
-        source: A,
-        owner: A,
-    },
-    FromAccountDoesNotExist(A),
-    ToAccountDoesNotExist(A),
+/// Enumeration of AT2 validation errors
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum ValidationError {
+    /// The actor that initiated the operation does not match the account owner
+    #[error("The actor that initiated the operation does not match the account owner")]
+    NotInitiatedByAccountOwner,
+
+    /// The From account does not exist
+    #[error("The From account does not exist")]
+    FromAccountDoesNotExist,
+
+    /// The To account does not exist
+    #[error("The To account does not exist")]
+    ToAccountDoesNotExist,
+
+    /// Insufficient funds
+    #[error("Insufficient funds")]
     InsufficientFunds {
+        /// Account balance
         balance: Money,
+        /// Transfer amount
         transfer_amount: Money,
     },
-    MissingDependentOps(BTreeSet<Transfer<A>>),
+
+    /// Missing dependent ops
+    #[error("Missing dependent ops")]
+    MissingDependentOps,
+
+    /// Owner already has an account
+    #[error("Owner already has an account")]
     OwnerAlreadyHasAnAccount,
 }
 
 impl<A: Ord + Hash + Debug + Clone + 'static + Serialize> BRBDataType<A> for Bank<A> {
     type Op = Op<A>;
-    type ValidationError = ValidationError<A>;
+    type ValidationError = ValidationError;
 
     fn new(id: A) -> Self {
         Bank {
@@ -117,39 +185,25 @@ impl<A: Ord + Hash + Debug + Clone + 'static + Serialize> BRBDataType<A> for Ban
         match op {
             Op::Transfer(transfer) => {
                 if source != &transfer.from {
-                    Err(ValidationError::NotInitiatedByAccountOwner {
-                        source: source.clone(),
-                        owner: transfer.from.clone(),
-                    })
+                    Err(ValidationError::NotInitiatedByAccountOwner)
                 } else if !self.initial_balances.contains_key(&transfer.from) {
-                    Err(ValidationError::FromAccountDoesNotExist(
-                        transfer.from.clone(),
-                    ))
+                    Err(ValidationError::FromAccountDoesNotExist)
                 } else if !self.initial_balances.contains_key(&transfer.to) {
-                    Err(ValidationError::ToAccountDoesNotExist(transfer.to.clone()))
+                    Err(ValidationError::ToAccountDoesNotExist)
                 } else if self.balance(&transfer.from) < transfer.amount {
                     Err(ValidationError::InsufficientFunds {
                         balance: self.balance(&transfer.from),
                         transfer_amount: transfer.amount,
                     })
                 } else if !transfer.deps.is_subset(&self.history(&transfer.from)) {
-                    Err(ValidationError::MissingDependentOps(
-                        transfer
-                            .deps
-                            .difference(&self.history(&transfer.from))
-                            .cloned()
-                            .collect(),
-                    ))
+                    Err(ValidationError::MissingDependentOps)
                 } else {
                     Ok(())
                 }
             }
             Op::OpenAccount { owner, .. } => {
                 if source != owner {
-                    Err(ValidationError::NotInitiatedByAccountOwner {
-                        source: source.clone(),
-                        owner: owner.clone(),
-                    })
+                    Err(ValidationError::NotInitiatedByAccountOwner)
                 } else if self.initial_balances.contains_key(owner) {
                     Err(ValidationError::OwnerAlreadyHasAnAccount)
                 } else {
@@ -175,10 +229,12 @@ impl<A: Ord + Hash + Debug + Clone + 'static + Serialize> BRBDataType<A> for Ban
                     .or_default()
                     .insert(transfer.clone());
 
+                // Add this transfer to self.deps only if we are recipient.
                 if transfer.to == self.id {
                     self.deps.insert(transfer.clone());
                 }
 
+                // remove transfer.deps from self.deps only if we are sender.
                 if transfer.from == self.id {
                     // In the paper, deps are cleared after the broadcast completes in
                     // self.transfer.
